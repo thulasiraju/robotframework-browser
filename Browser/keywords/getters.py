@@ -8,11 +8,11 @@ from ..generated.playwright_pb2 import Request
 from ..assertion_engine import (
     bool_verify_assertion,
     verify_assertion,
-    list_verify_assertion,
-    dict_verify_assertion,
+    sequence_verify_assertion,
     int_dict_verify_assertion,
     int_str_verify_assertion,
     AssertionOperator,
+    SequenceOperator,
 )
 from .input import SelectAttribute
 
@@ -142,7 +142,7 @@ class Getters(LibraryComponent):
         self,
         selector: str,
         option_attribute: SelectAttribute = SelectAttribute.label,
-        assertion_operator: Optional[AssertionOperator] = None,
+        assertion_operator: Optional[SequenceOperator] = None,
         *assertion_expected,
     ):
         """Returns the specified attribute of selected options of the ``select`` element.
@@ -187,7 +187,7 @@ class Getters(LibraryComponent):
                 ]
                 expected = [int(exp) for exp in expected]
 
-            return list_verify_assertion(
+            return sequence_verify_assertion(
                 selected, assertion_operator, expected, "Selected Options:",
             )
 
@@ -326,7 +326,7 @@ class Getters(LibraryComponent):
         self,
         selector: str,
         key: str = "ALL",
-        assertion_operator: Optional[AssertionOperator] = None,
+        assertion_operator: Optional[SequenceOperator] = None,
         assertion_expected: Any = None,
     ):
         """Gets the computed style properties of the element selected by ``selector``
@@ -340,7 +340,7 @@ class Getters(LibraryComponent):
             parsed = json.loads(response.body)
 
             if key == "ALL":
-                return dict_verify_assertion(
+                return sequence_verify_assertion(
                     parsed, assertion_operator, assertion_expected, "Computed style is"
                 )
             else:

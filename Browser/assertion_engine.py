@@ -8,6 +8,7 @@ from typing import (
     cast,
     Optional,
     List,
+    Union,
 )
 import re
 
@@ -15,8 +16,8 @@ from robot.libraries.BuiltIn import BuiltIn  # type: ignore
 
 from .utils.robot_booleans import is_truthy
 
-AssertionOperator = Enum(
-    "AssertionOperator",
+NumericalOperator = Enum(
+    "NumericalEnum",
     {
         "equal": "==",
         "==": "==",
@@ -30,6 +31,26 @@ AssertionOperator = Enum(
         ">": ">",
         "<=": "<=",
         ">=": ">=",
+    },
+)
+SequenceOperator = Enum(
+    "SequenceOperators",
+    {
+        "contains": "*=",
+        "*=": "*=",
+        "validate": "validate",
+        "equal": "==",
+        "==": "==",
+        "shouldbe": "==",
+        "inequal": "!=",
+        "!=": "!=",
+        "shouldnotbe": "!=",
+    },
+)
+
+StringOperator = Enum(
+    "StringOperator",
+    {
         "contains": "*=",
         "*=": "*=",
         "starts": "^=",
@@ -37,47 +58,43 @@ AssertionOperator = Enum(
         "shouldstartwith": "^=",
         "ends": "$=",
         "$=": "$=",
-        "matches": "$",
-        "validate": "validate",
-        "then": "then",
-        "evaluate": "then",
+        "matches": "matches",
     },
 )
 
-NumericalOperators = [
-    AssertionOperator["=="],
-    AssertionOperator["!="],
-    AssertionOperator[">="],
-    AssertionOperator[">"],
-    AssertionOperator["<="],
-    AssertionOperator["<"],
+EvalOperator = Enum(
+    "EvalOperator", {"validate": "validate", "then": "then", "evaluate": "then"}
+)
+
+AssertionOperator = Enum(  # type: ignore
+    "AssertionOperator",
+    {
+        **{i.value: i.name for i in NumericalOperator},
+        **{i.value: i.name for i in SequenceOperator},
+        **{i.value: i.name for i in StringOperator},
+        **{i.value: i.name for i in EvalOperator},
+    },
+)
+AnyOperator = Union[
+    NumericalOperator,
+    SequenceOperator,
+    StringOperator,
+    EvalOperator,
+    AssertionOperator,
 ]
 
-SequenceOperators = [
-    AssertionOperator["*="],
-    AssertionOperator["validate"],
-    AssertionOperator["=="],
-    AssertionOperator["!="],
-]
-
-handlers: Dict[AssertionOperator, Tuple[Callable, str]] = {
-    AssertionOperator["=="]: (lambda a, b: a == b, "should be"),
-    AssertionOperator["!="]: (lambda a, b: a != b, "should not be"),
-    AssertionOperator["<"]: (lambda a, b: a < b, "should be less than"),
-    AssertionOperator[">"]: (lambda a, b: a > b, "should be greater than"),
-    AssertionOperator["<="]: (lambda a, b: a <= b, "should be less than or equal"),
-    AssertionOperator[">="]: (lambda a, b: a >= b, "should be greater than or equal"),
-    AssertionOperator["*="]: (lambda a, b: b in a, "should contain"),
-    AssertionOperator["matches"]: (lambda a, b: re.search(b, a), "should match"),
-    AssertionOperator["^="]: (
-        lambda a, b: re.search(f"^{re.escape(b)}", a),
-        "should start with",
-    ),
-    AssertionOperator["$="]: (
-        lambda a, b: re.search(f"{re.escape(b)}$", a),
-        "should end with",
-    ),
-    AssertionOperator["validate"]: (
+handlers: Dict[str, Tuple[Callable, str]] = {
+    "==": (lambda a, b: a == b, "should be"),
+    "!=": (lambda a, b: a != b, "should not be"),
+    "<": (lambda a, b: a < b, "should be less than"),
+    ">": (lambda a, b: a > b, "should be greater than"),
+    "<=": (lambda a, b: a <= b, "should be less than or equal"),
+    ">=": (lambda a, b: a >= b, "should be greater than or equal"),
+    "*=": (lambda a, b: b in a, "should contain"),
+    "matches": (lambda a, b: re.search(b, a), "should match"),
+    "^=": (lambda a, b: re.search(f"^{re.escape(b)}", a), "should start with",),
+    "$=": (lambda a, b: re.search(f"{re.escape(b)}$", a), "should end with",),
+    "validate": (
         lambda a, b: BuiltIn().evaluate(b, namespace={"value": a}),
         "should validate to true with",
     ),
@@ -88,13 +105,13 @@ T = TypeVar("T")
 
 
 def verify_assertion(
-    value: T, operator: Optional[AssertionOperator], expected: Any, message=""
+    value: T, operator: Optional[AnyOperator], expected: Any, message=""
 ) -> Any:
     if operator is None:
         return value
     if operator is AssertionOperator["then"]:
         return cast(T, BuiltIn().evaluate(expected, namespace={"value": value}))
-    handler = handlers.get(operator)
+    handler = handlers.get(operator.name)
     if handler is None:
         raise RuntimeError(f"{message} `{operator}` is not a valid assertion operator")
     validator, text = handler
@@ -108,13 +125,9 @@ def int_str_verify_assertion(
 ):
     if operator is None:
         return value
-    elif operator in NumericalOperators:
+    elif operator in NumericalOperator:
         expected = int(expected)
-
-    elif operator in [
-        AssertionOperator["validate"],
-        AssertionOperator["then"],
-    ]:
+    elif operator in EvalOperator:
         expected = str(expected)
     else:
         raise ValueError(f"Operator '{operator.name}' is not allowed.")
@@ -145,41 +158,23 @@ def map_list(selected: List):
         return selected
 
 
-def list_verify_assertion(
-    value: List[Any],
-    operator: Optional[AssertionOperator],
-    expected: List[Any],
+def sequence_verify_assertion(
+    value: Union[List, Dict],
+    operator: Optional[SequenceOperator],
+    expected: Union[List, Dict],
     message="",
 ):
-    if not operator:
-        return map_list(value)
+    if isinstance(value, list) and isinstance(expected, list):
 
-    expected.sort()
-    value.sort()
-
-    if operator not in SequenceOperators:
-        raise AttributeError(
-            f"Operator '{operator.name}' is not allowed in this Keyword."
-            f"Allowed operators are: '{SequenceOperators}'"
-        )
-
-    return verify_assertion(map_list(value), operator, map_list(expected), message)
-
-
-def dict_verify_assertion(
-    value: Dict,
-    operator: Optional[AssertionOperator],
-    expected: Optional[Dict],
-    message="",
-):
-    if not operator:
-        return value
-    if operator in SequenceOperators:
+        expected.sort()
+        value.sort()
+        return verify_assertion(map_list(value), operator, map_list(expected), message)
+    elif isinstance(value, dict) and isinstance(expected, dict):
         return verify_assertion(value, operator, expected, message)
     else:
-        raise AttributeError(
-            f"Operator '{operator.name}' is not allowed in this Keyword."
-            f"Allowed operators are: {SequenceOperators}"
+        raise TypeError(
+            "Both value and expected need to be lists or dicts to use sequence assertion."
+            f"Their types were: {type(value)}, expected: {type(expected)}"
         )
 
 
@@ -191,15 +186,15 @@ def int_dict_verify_assertion(
 ):
     if not operator:
         return value
-    elif expected and operator in NumericalOperators:
+    elif expected and operator in NumericalOperator:
         for k, v in value.items():
             exp = expected[k]
             verify_assertion(v, operator, exp, message)
         return True
-    elif operator in SequenceOperators:
+    elif operator in SequenceOperator:
         return verify_assertion(value, operator, expected, message)
     else:
         raise AttributeError(
-            f"Operator '{operator.name}' is not allowed in this Keyword."
-            f"Allowed operators are: {NumericalOperators} and {SequenceOperators}"
+            f"Operator '{operator.name}' is not allowed in this Keyword. "
+            f"Allowed operators are: {NumericalOperator} and {SequenceOperator}"
         )
