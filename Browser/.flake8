@@ -3,3 +3,5 @@ exclude =
    __pycache__,
    generated,
 ignore = E501, W503
+dictionaries=en_US,python,technical
+spellcheck-targets=comments
