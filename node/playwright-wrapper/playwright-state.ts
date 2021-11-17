@@ -102,10 +102,19 @@ async function _newBrowser(
     };
 }
 
-async function _connectBrowser(browserType: string, url: string): Promise<BrowserAndConfs> {
+type ConnectTarget = 'firefox' | 'chromium' | 'webkit' | 'devToolsProtocol';
+
+async function _connectBrowser(browserType: ConnectTarget, url: string): Promise<BrowserAndConfs> {
     browserType = browserType || 'chromium';
     let browser;
-    if (browserType === 'firefox') {
+    if (browserType === 'devToolsProtocol') {
+        browser = await chromium.connectOverCDP(url);
+        return {
+            browser: browser,
+            browserType: 'chromium',
+            headless: false,
+        };
+    } else if (browserType === 'firefox') {
         browser = await firefox.connect({ wsEndpoint: url });
     } else if (browserType === 'chromium') {
         browser = await chromium.connect({ wsEndpoint: url });

@@ -291,6 +291,23 @@ class PlaywrightState(LibraryComponent):
             return response.body
 
     @keyword(tags=("Setter", "BrowserControl"))
+    def connect_to_chrome_browser(self, devToolsPort: str):
+        """Connect to a non-playwright controlled chrome browser that has devtools port open.
+
+        The chrome browser's state is not validated in any way, so avoid this in testing.
+
+        ``devToolsPort`` Address to connect to.
+
+        Returns a stable identifier for the connected browser.
+        """
+        with self.playwright.grpc_channel() as stub:
+            response = stub.ConnectToBrowser(
+                Request().ConnectBrowser(url=devToolsPort, browser="devToolsProtocol")
+            )
+            logger.info(response.log)
+            return response.body
+
+    @keyword(tags=("Setter", "BrowserControl"))
     def new_browser(
         self,
         browser: SupportedBrowsers = SupportedBrowsers.chromium,
