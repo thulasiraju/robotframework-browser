@@ -93,7 +93,7 @@ async function _newBrowser(
     } else if (browserType === 'webkit') {
         browser = await webkit.launch(launchOptions);
     } else {
-        throw new Error('unsupported browser');
+        throw new Error('unsupported browser for _newBrowser');
     }
     return {
         browser,
@@ -121,7 +121,7 @@ async function _connectBrowser(browserType: ConnectTarget, url: string): Promise
     } else if (browserType === 'webkit') {
         browser = await webkit.connect({ wsEndpoint: url });
     } else {
-        throw new Error('unsupported browser');
+        throw new Error('unsupported browser for _connectBrowser');
     }
     return {
         browser,
@@ -525,8 +525,13 @@ export async function connectToBrowser(
 ): Promise<Response.String> {
     const browserType = request.getBrowser();
     const url = request.getUrl();
-    const browserAndConfs = await _connectBrowser(browserType, url);
+    const browserAndConfs = await _connectBrowser(browserType as ConnectTarget, url);
     const browserState = openBrowsers.addBrowser(browserAndConfs);
+    /*
+      It takes significant changes to "import" state from existing browser into RFBrowser. 
+      const contexts = await browserAndConfs.browser.contexts();
+      browserState.pushContext(contexts)
+    */
     return stringResponse(browserState.id, 'Successfully connected to browser');
 }
 
