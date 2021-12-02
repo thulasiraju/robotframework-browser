@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 const esbuild = require('esbuild');
-const { nodeExternalsPlugin } = require('esbuild-node-externals');
 
 esbuild.build({
     logLevel: "info",
@@ -8,6 +7,11 @@ esbuild.build({
     bundle: true,
     platform: "node",
     outfile: "./Browser/wrapper/index.js",
-    plugins: [nodeExternalsPlugin()],
+    external: ["electron"],
+    keepNames: true,
+    minifyIdentifiers: false,
+    minifySyntax: false,
+    minify: false,
+    /* plugins: [nodeExternalsPlugin()], */
   })
   .catch(() => process.exit(1));

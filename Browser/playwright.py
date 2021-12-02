@@ -74,7 +74,7 @@ class Playwright(LibraryComponent):
         project_folder = rfbrowser_dir.parent
         subfolders = os.listdir(project_folder) + os.listdir(installation_dir)
 
-        if "node_modules" in subfolders:
+        if "browsers" in subfolders:
             return
         raise RuntimeError(
             f"Could not find node dependencies in installation directory `{installation_dir}.` "
@@ -99,7 +99,10 @@ class Playwright(LibraryComponent):
         logger.info(f"Starting Browser process {playwright_script} using port {port}")
         self.port = port
         if not os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
-            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
+            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(
+                Path(__file__).parent / "wrapper/browsers/"
+            )
+
         return Popen(
             ["node", str(playwright_script), port],
             shell=False,

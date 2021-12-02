@@ -87,7 +87,8 @@ def deps(c):
     c.run("pip install -r Browser/dev-requirements.txt")
     if os.environ.get("CI"):
         shutil.rmtree("node_modules")
-    c.run("npm install", env={"PLAYWRIGHT_BROWSERS_PATH": "0"})
+    c.run("npm install", env={"PLAYWRIGHT_BROWSERS_PATH": PYTHON_SRC_DIR / "wrapper" / "browsers/"
+})
 
 
 @task
@@ -287,7 +288,8 @@ def atest(c, suite=None, include=None, zip=None, debug=False):
     os.mkdir(ATEST_OUTPUT)
     logfile = open(Path(ATEST_OUTPUT, "playwright-log.txt"), "w")
     os.environ["DEBUG"] = "pw:api"
-    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
+    if not os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
     port = str(find_free_port())
     process = subprocess.Popen(
         [
@@ -519,7 +521,7 @@ def lint_python(c):
         (ROOT_DIR / "utest").glob("**/*.py")
     )
     if _sources_changed(all_py_sources, python_lint_timestamp_file):
-        c.run("mypy --show-error-codes --config-file Browser/mypy.ini Browser/ utest/")
+        c.run("mypy --show-error-codes --config-file Browser/mypy.ini --exclude Browser/wrapper") 
         c.run("black --config Browser/pyproject.toml Browser/")
         c.run("flake8 --config Browser/.flake8 Browser/ utest/")
         c.run("isort Browser/")

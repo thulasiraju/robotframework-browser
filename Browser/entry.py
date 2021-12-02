@@ -63,10 +63,12 @@ def rfbrowser_init(skip_browser_install: bool):
         os.environ["PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD"] = "1"
     else:
         if not os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
-            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
+            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(
+                (Path(__file__).parent / "wrapper/browsers/")
+            )
 
     process = Popen(
-        "npm ci --production",
+        "npx playwright install",
         shell=True,
         cwd=INSTALLATION_DIR,
         stdout=PIPE,
