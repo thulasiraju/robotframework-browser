@@ -14,7 +14,7 @@
 import re
 import sys
 from datetime import timedelta
-from typing import Any
+from typing import Any, List
 
 from robotlibcore import KeywordBuilder  # type: ignore
 
@@ -66,18 +66,28 @@ def get_type_string_from_argument(argument_string: str, argument_types: dict) ->
     return ""
 
 
-def get_function_list_from_keywords(keywords):
+def get_function_list_from_keywords(keywords: List[str]):
     functions = list()
     for keyword in keywords:
-        method_name = get_method_name_for_keyword(keyword)
-        keyword_arguments = br.get_keyword_arguments(keyword)
-        keyword_types = br.get_keyword_types(keyword)
-        functions.append(keyword_line(keyword_arguments, keyword_types, method_name))
+        functions.append(keyword_to_line(keyword))
     functions.sort()
     return functions
 
 
-def keyword_line(keyword_arguments, keyword_types, method_name) -> str:
+def keyword_to_line(keyword_name) -> str:
+    if keyword_name == "__init__":
+        method = KeywordBuilder.build(br.__init__)
+        method_name = "__init__"
+        keyword_arguments = method.argument_specification
+        assert keyword_arguments
+        keyword_types = method.argument_types
+        assert keyword_types
+    else:
+        method_name = get_method_name_for_keyword(keyword_name)
+        keyword_arguments = br.get_keyword_arguments(keyword_name)
+        keyword_types = br.get_keyword_types(keyword_name)
+
+    keyword_arguments, keyword_types, method_name
     arguments_list = list()
     for argument in keyword_arguments:
         if isinstance(argument, tuple):
@@ -100,7 +110,22 @@ def keyword_line(keyword_arguments, keyword_types, method_name) -> str:
     arguments_string = (
         f", {', '.join(arguments_list)}" if len(arguments_list) > 0 else ""
     )
-    return f"    def {method_name}(self{arguments_string}): ...\n"
+
+    two_indents = "        "
+    docstring = (
+        two_indents
+        + '"""\n'
+        + "".join(
+            [
+                f"{two_indents}{line}\n"
+                for line in br.get_keyword_documentation(keyword_name).split("\n")
+            ]
+        )
+        + two_indents
+        + '"""'
+    )
+
+    return f"    def {method_name}(self{arguments_string}):\n{docstring}\n    ...\n"
 
 
 br: Any = Browser.Browser()
@@ -139,9 +164,7 @@ pyi_non_kw_methods = """\
 init_method = KeywordBuilder.build(br.__init__)
 with open("Browser/__init__.pyi", "w") as stub_file:
     stub_file.write(pyi_boilerplate)
-    init_string = keyword_line(
-        init_method.argument_specification, init_method.argument_types, "__init__"
-    )
+    init_string = keyword_to_line("__init__")
     # init methods argument types that are contained within higher order types don't get
     # import syntax stripped correctly so we fix them manually here
     init_string = init_string.replace(

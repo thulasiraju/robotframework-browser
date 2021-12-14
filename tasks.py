@@ -803,3 +803,8 @@ def demo_app(c):
         zip_file.write(file, arc_name)
     zip_file.close()
     return zip_path
+
+@task
+def python_docs(c):
+    """
+    """
