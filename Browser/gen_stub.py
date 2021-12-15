@@ -145,7 +145,7 @@ from os import PathLike
 
 import assertionengine
 
-from .utils.data_types import *
+from Browser.utils.data_types import *
 
 
 class Browser:
